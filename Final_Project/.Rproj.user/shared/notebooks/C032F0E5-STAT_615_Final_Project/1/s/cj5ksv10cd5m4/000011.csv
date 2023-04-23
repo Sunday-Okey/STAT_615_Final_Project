@@ -1,0 +1,3 @@
+"0","#Let's drop the id column columns "
+"0","estate %>% "
+"0","  select(-id) -> estate"

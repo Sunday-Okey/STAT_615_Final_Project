@@ -1,0 +1,3 @@
+"0","estate2 <- estate %>% "
+"0","  select(price, area, quality, style, lot, ac)"
+"0","estate2"
