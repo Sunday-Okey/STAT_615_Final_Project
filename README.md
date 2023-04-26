@@ -3,7 +3,7 @@ The goal of this project is to predict residential home sales prices from the ot
 
 ## Data Source
 
-[click here view the data source on github](https://github.com/dcgerard/stat_415_615/blob/main/lectures/data/estate.csv)
+[click here to view the data source on github](https://github.com/dcgerard/stat_415_615/blob/main/lectures/data/estate.csv)
 
 ## Brief Description of the dataset:
  
