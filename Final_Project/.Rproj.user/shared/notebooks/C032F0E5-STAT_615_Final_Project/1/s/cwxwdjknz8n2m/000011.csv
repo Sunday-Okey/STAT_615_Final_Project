@@ -1,5 +1,0 @@
-"0","# Read the CSV file into R"
-"0","estate <- read.csv(file_path)"
-"0",""
-"0","# View the first few rows of the data to confirm that it was loaded correctly"
-"0","head(estate)"

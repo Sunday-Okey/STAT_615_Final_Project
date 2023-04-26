@@ -1,7 +1,0 @@
-"0","# check for null values"
-"0","# count the number of null values"
-"0","sum(is.na(estate))"
-"1","[1]"
-"1"," 0"
-"1","
-"

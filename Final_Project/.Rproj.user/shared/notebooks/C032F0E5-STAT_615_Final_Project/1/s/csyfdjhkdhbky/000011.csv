@@ -1,4 +1,0 @@
-"0","quant_variables <- estate %>% "
-"0","  select(price, area, bed, bath, garage,"
-"0","        year,style, lot)"
-"0","quant_variables"
