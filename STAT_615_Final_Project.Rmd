@@ -3,18 +3,19 @@ title: "Final_Project"
 author: "Sunday Okechukwu"
 date: "2023-04-10"
 output:
-  word_document: default
   html_document: default
+  word_document: default
 ---
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(corrplot)
+library(olsrr)
+library(ggplot2)
+library(gridExtra)
 ```
 
-1. Offer a preliminary description of the data set. For example, indicate the size of the
-data source, describe the variables, and include any other data profile information that would be of interest.
+1. Offer a preliminary description of the data set. For example, indicate the size of the data source, describe the variables, and include any other data profile information that would be of interest.
 
 ## Data Source
 
@@ -69,6 +70,7 @@ file_path <- file.path("data", "estate.csv")
 # Download the CSV file from the specified URL and save it to the file path
 download.file(url, file_path, method = "auto")
 ```
+
 ```{r}
 # Read the CSV file into R
 estate <- read.csv(file_path)
@@ -77,28 +79,30 @@ estate <- read.csv(file_path)
 head(estate)
 ```
 ```{r}
-# check for null values
-# count the number of null values
-sum(is.na(estate))
-```
-```{r}
 #Let's drop the id column columns 
 estate %>% 
   select(-id) -> estate
 ```
 
-## Exporing the quantitative variables
 
 ```{r}
+# check for null values
+# count the number of null values
+sum(is.na(estate))
+```
+
+2. Generate relevant data visual plots that explore multicollinearity for the quantitative variables and normality for the quantitative variables as well. Also, use
+R code to confirm the levels of the categorical variables.
+
+
+```{r}
+## Exploring the quantitative variables
 quant_variables <- estate %>% 
   select(price, area, bed, bath, garage,
         year,style, lot)
-quant_variables
-```
+head(quant_variables)
 
-2. Generate relevant data visual plots that explore multicollinearity for the
-quantitative variables and normality for the quantitative variables as well. Also, use
-R code to confirm the levels of the categorical variables.
+```
 
 ```{r}
 # Lets visualize the correlation
@@ -106,22 +110,170 @@ corrplot(cor(quant_variables), method = 'number')
 ```
 
 ```{r}
-pairs(quant_variables)
+corrplot(cor(quant_variables), type = "upper", method = "circle")
 ```
 
-```{r}
-estate2 <- estate %>% 
-  select(price, area, quality, style, lot, ac)
-estate2
-```
+#### Observation
+
+`It appears there's multicollinearity between some explanatory variables. For example, bath is highly correlated with area with correlation coefficient of 0.76, area and style are also moderately correlated`
 
 
 ```{r}
-model <- lm(price ~ area + ac + quality + style + lot , estate2)
+# Generate histograms and normal probability plots to explore normality
+
+quant_vars <- names(quant_variables)
+
+histograms <- lapply(quant_vars, function(var) {
+  ggplot(quant_variables, aes(x = get(var))) +
+    geom_histogram(binwidth = 1) +
+    ggtitle(paste("Histogram of", var))
+})
+
+qqplots <- lapply(quant_vars, function(var) {
+  ggplot(quant_variables, aes(sample = get(var))) +
+    geom_qq() +
+    geom_abline(intercept = mean(quant_variables[[var]]), slope = sd(quant_variables[[var]])) +
+    ggtitle(paste("Normal Q-Q Plot of", var))
+})
+
+grid.arrange(grobs = histograms, ncol = 3)
+grid.arrange(grobs = qqplots, ncol = 3)
+```
+
+
+```{r}
+# Convert all character variables to factors
+estate[] <- lapply(estate, function(x) {
+  if(is.character(x)) {
+    factor(x)
+  } else {
+    x
+  }
+})
+```
+
+```{r}
+str(estate)
+```
+
+
+```{r}
+# Select only the categorical variables from the data frame
+cat_vars <- sapply(estate, is.factor)
+data_cat <- estate[, cat_vars]
+
+# Loop over the categorical variables and print their levels
+for (var in colnames(data_cat)) {
+  cat(paste(var, ":\n"))
+  print(levels(data_cat[[var]]))
+}
+
+```
+
+3. Using R code, produce a full Regression Model that consists of quantitative and categorical variables. Make use of the R generated dummy variable matrices
+
+
+```{r}
+# produce a full Regression Model that consists of quantitative and categorical variables
+model <- lm(price ~ ., estate)
 model
 ```
+```{r}
+summary(model)
+```
+
+#### Observations
+
+area, year, quality, style, and lot statistically significant. This means that the Null Hypothesis are their coefficients are zero can be rejected in favor of the Alternative hypothesis
+
+
+
+
+```{r}
+# Create a matrix of the predictor variables
+X <- as.matrix(quant_variables[, -1])
+X <- cbind(1, X)
+
+# Create a vector of the response variable
+y <- as.matrix(quant_variables[, 1])
+
+# Calculate the beta coefficients using matrix methods
+beta <- solve(t(X) %*% X) %*% t(X) %*% y
+beta
+```
+
+```{r}
+# Confirm the above values
+fit <- lm(price ~ . , quant_variables)
+fit
+```
+```{r}
+# Calculate the fitted values and residuals
+yhat <- X %*% beta
+residuals <- y - yhat
+
+as.tibble(data.frame(fitted_values = yhat, residuals = residuals))
+```
+
+5. Produce an output summary table to be used to analyze and evaluate the full model (Adjusted R squared, Standard Error, Significance of Variables, etc...)
 
 ```{r}
 summary(model)
 ```
 
+6. Use procedures and techniques explored in class to produce confidence intervals for the independent quantitative variables of your model. Choose at least two of the quantitative variables to find confidence intervals for.
+
+```{r}
+# Find confidence intervals for two quantitative variables
+confint(model, level = 0.95, "area")
+```
+```{r}
+confint(model, level = 0.95, "bed")
+```
+This means that we are 95% confident that the true population coefficient for the `bed` variable (i.e., the effect of the number of bedrooms on the price in the population) lies within this range. In other words, if we were to repeat our data collection and analysis many times, we would expect the coefficient for the `bed` variable to fall within this range in 95% of cases.
+
+
+7. Now produce a reduced model (removing variables of your choice with justification). Use R summary coding for both models and offer justification for choosing one model over the other.
+
+### Justications
+
+Here variables that are not statistically significant are removed
+```{r}
+model <- lm(price ~ area + bath + year + quality + style + lot, data = estate)
+summary(model)
+```
+
+
+8. Research and apply a model analysis technique not discussed in class to your full model or reduced model. Fully explain the technique or procedure and how it is being applied to your specific model.
+
+`I suggest the following`
+
+- Leverage
+- Cook's distance
+- studentized
+- Stepwise regression
+
+
+Stepwise regression is a method of fitting a multiple regression model to a dataset in which the variables are selected in a step-by-step manner based on their statistical significance. The goal of stepwise regression is to identify a subset of the most important predictor variables that have the greatest impact on the outcome variable while minimizing overfitting.
+
+There are two main approaches to stepwise regression: forward selection and backward elimination. Both approaches are iterative, meaning that they involve running a sequence of regression models with different subsets of predictor variables.
+
+In forward selection, the algorithm starts with a model that includes only the intercept and then adds the predictor variable that has the highest correlation with the outcome variable. It continues to add predictor variables one at a time, stopping when all remaining predictor variables have a p-value above a certain threshold or when adding more variables no longer improves the model's overall fit.
+
+In backward elimination, the algorithm starts with a model that includes all predictor variables and then removes the variable with the highest p-value (i.e., the least statistically significant variable). It continues to remove predictor variables one at a time, stopping when all remaining predictor variables have a p-value below a certain threshold or when removing more variables no longer improves the model's overall fit.
+
+Both forward selection and backward elimination can result in different final models, depending on the data and the criteria used to determine statistical significance. Therefore, it is important to evaluate the model's performance on an independent dataset to avoid overfitting and to assess the model's predictive accuracy.
+
+```{r}
+#define model with all predictors
+all <- lm(price ~ ., data=estate)
+all
+
+#perform forward stepwise regression
+forward <- step(all, direction='forward', scope=formula(all), trace=0)
+forward
+```
+
+
+
+9. Offer final summary perspectives about the data and the models that you produce, suggesting how your models or model analysis enhanced your understanding of the data. (4 or 5 sentences)
